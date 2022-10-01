@@ -1,0 +1,83 @@
+import { GetServerSideProps } from "next";
+import Image from "next/future/image";
+import Head from "next/head";
+import Link from "next/link";
+import { useRouter } from "next/router";
+import Stripe from "stripe";
+import { stripe } from "../lib/stripe";
+import { ImageContainer, MultipleImage, SuccessContainer } from "../styles/pages/success";
+
+interface SuccessProps {
+  costumerName: string;
+  items: [
+    {
+      id: string;
+      price: {
+        product: {
+          name: string;
+          images: string[];
+        }
+      }
+    }
+  ]
+}
+
+export default function Success({ costumerName, items }: SuccessProps) {
+  return (
+    <>
+      <Head>
+        <title>Compra Efetuada | Ignite Shop</title>
+        <meta name="robots" content="noindex" />
+      </Head>
+
+      <SuccessContainer>
+        <h1>Compra efetuada</h1>
+
+        <MultipleImage>
+          {items.map((item) => {
+            return (
+              <ImageContainer key={item.id}>
+                <Image src={item.price.product.images[0]} width={120} height={110} alt="" />
+              </ImageContainer>
+            )
+          })}
+        </MultipleImage>
+        <p>
+          Uhuul <strong>{costumerName}</strong>, sua compra de {items.length} camisetas já está a caminho da sua casa.
+        </p>
+
+        <Link href="/">
+          Voltar ao catálogo
+        </Link>
+      </SuccessContainer>
+    </>
+  )
+}
+
+export const getServerSideProps: GetServerSideProps = async ({ query }) => {
+
+  if (!query.session_id) {
+    return {
+      redirect: {
+        destination: '/',
+        permanent: false
+      }
+    }
+  }
+
+  const sessionId = String(query.session_id);
+
+  const session = await stripe.checkout.sessions.retrieve(sessionId, {
+    expand: ['line_items', 'line_items.data.price.product']
+  });
+
+  const costumerName = session.customer_details.name;
+  const items = session.line_items.data;
+
+  return {
+    props: {
+      costumerName,
+      items
+    }
+  }
+}
